@@ -26,8 +26,6 @@ def load_instance(instance: str = 'ft6'):
     assert os.path.exists(path)
     assert os.path.isfile(path)
 
-    # time为一个实例的时间表，machine为一个实例的机器表
-    # times为该文件包含的所有实例，machines同理
     time = []
     times = []
     machine = []

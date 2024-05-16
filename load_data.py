@@ -1,16 +1,12 @@
 import h5py
 import os
 
-media_dir = '/media/NAS/USERS/moonbo/jssp'
-# filenames = ['jssp_data_gpu0_1000.h5', 'jssp_data_gpu1_1000.h5', 'jssp_data_gpu2_1000.h5', 'jssp_data_gpu3_1000.h5']
-filenames = ['jssp_data_real.h5']
+def load_data():
+    media_dir = '/media/NAS/USERS/moonbo/jssp'
+    # filenames = ['jssp_data_gpu0_1000.h5', 'jssp_data_gpu1_1000.h5', 'jssp_data_gpu2_1000.h5', 'jssp_data_gpu3_1000.h5']
+    filenames = ['jssp_data_real.h5']
 
-for filename in filenames:
-    with h5py.File(os.path.join(media_dir, filename), 'r') as f:
-        times = f['times'][:]
-        machines = f['machines'][:]
-    print(f"Data loaded from {filename}")
-    print(times.shape)  # (1000, 20, 100)
-    print(machines.shape)  # (1000, 20, 100)
-    print(times[0])
-    print(machines[0])
+    for filename in filenames:
+        with h5py.File(os.path.join(media_dir, filename), 'r') as f:
+            times = f['times'][:]
+            machines = f['machines'][:]
