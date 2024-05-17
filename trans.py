@@ -10,9 +10,10 @@ class JSSPEmbedding(nn.Module):
         # machine_count = max_operations
         self.d_model = d_model
         # Categorical data embeddings
-        self.job_embedding = nn.Embedding(job_count, d_model)
-        self.machine_embedding = nn.Embedding(machine_count, d_model)
-        self.sequence_embedding = nn.Embedding(machine_count, d_model)
+        self.num_embeddings = job_count * machine_count
+        self.job_embedding = nn.Embedding(self.num_embeddings, d_model)
+        self.machine_embedding = nn.Embedding(self.num_embeddings, d_model)
+        self.sequence_embedding = nn.Embedding(self.num_embeddings, d_model)
         # Continuous data embeddings
         self.time_embedding = nn.Linear(1, d_model)
         self.final_projection = nn.Linear(4 * d_model, d_model)
@@ -23,17 +24,24 @@ class JSSPEmbedding(nn.Module):
         machines = x[:, :, :, 1]  # (32, 100, 20)
         
         # Generate job and sequence indices
-        job_indices = torch.arange(num_jobs).unsqueeze(0).unsqueeze(-1).repeat(batch_size, 1, num_operations).to(x.device)
-        sequence_indices = torch.arange(num_operations).unsqueeze(0).unsqueeze(0).repeat(batch_size, num_jobs, 1).to(x.device)
+        job_indices = torch.arange(num_jobs).unsqueeze(0).unsqueeze(-1).repeat(batch_size, 1, num_operations).to(x.device) # 32, 100, 20
+        sequence_indices = torch.arange(num_operations).unsqueeze(0).unsqueeze(0).repeat(batch_size, num_jobs, 1).to(x.device) # 32, 100, 20
+
         # job_indices shape: (batch_size, num_jobs, num_operations) -> (32, 100, 20)
         # sequence_indices shape: (batch_size, num_jobs, num_operations) -> (32, 100, 20)
         
         # Flatten for embedding lookup
-        job_indices = job_indices.flatten()  # (batch_size * num_jobs * num_operations) -> (32 * 100 * 20) = (64000)
-        machine_indices = machines.flatten()  # (batch_size * num_jobs * num_operations) -> (32 * 100 * 20) = (64000)
-        sequence_indices = sequence_indices.flatten()  # (batch_size * num_jobs * num_operations) -> (32 * 100 * 20) = (64000)
+        job_indices = job_indices.flatten().long()  # (batch_size * num_jobs * num_operations) -> (32 * 100 * 20) = (64000)
+        machine_indices = machines.flatten().long()  # (batch_size * num_jobs * num_operations) -> (32 * 100 * 20) = (64000)
+        sequence_indices = sequence_indices.flatten().long()  # (batch_size * num_jobs * num_operations) -> (32 * 100 * 20) = (64000)
         time_values = times.flatten().unsqueeze(-1).float().to(x.device)  # (batch_size * num_jobs * num_operations, 1) -> (64000, 1)
-        
+        # print(job_indices.shape, machine_indices.shape, sequence_indices.shape, time_values.shape)
+        # print(self.job_embedding.num_embeddings, self.machine_embedding.num_embeddings, self.sequence_embedding.num_embeddings)
+        # Check if indices are within valid range
+        assert job_indices.max().item() < self.job_embedding.num_embeddings, "job_indices out of range"
+        assert machine_indices.max().item() < self.machine_embedding.num_embeddings, "machine_indices out of range"
+        assert sequence_indices.max().item() < self.sequence_embedding.num_embeddings, "sequence_indices out of range"
+
         # Embeddings
         job_emb = self.job_embedding(job_indices)  # Shape: (batch_size * num_jobs * num_operations, d_model)
         machine_emb = self.machine_embedding(machine_indices)  # Shape: (batch_size * num_jobs * num_operations, d_model)
@@ -44,10 +52,10 @@ class JSSPEmbedding(nn.Module):
         concat_emb = torch.cat((job_emb, machine_emb, sequence_emb, time_emb), dim=-1)  # Shape: (batch_size * num_jobs * num_operations, 4 * d_model)
         
         # Project to final embedding size
-        final_emb = self.final_projection(concat_emb)  # Shape: (batch_size * num_jobs * num_operations, d_model)
+        final_emb = self.final_projection(concat_emb)  # Shape: (batch_size * num_jobs * num_operations, d_model) 
         
         # Reshape to (batch_size, num_jobs * num_operations, d_model)
-        final_emb = final_emb.view(batch_size, num_jobs * num_operations, self.d_model)
+        final_emb = final_emb.view(batch_size, num_jobs * num_operations, self.d_model) # 32, 2000, 64
         
         return final_emb
 

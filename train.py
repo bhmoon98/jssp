@@ -7,8 +7,9 @@ from sklearn.model_selection import train_test_split
 from torch.utils.tensorboard import SummaryWriter
 from trans import JSSPTransformer
 import os
+from tqdm import tqdm
 
-EXPERIMENT_NAME = 'jssp_transformer_0'
+EXPERIMENT_NAME = 'jssp_transformer_first'
 
 # 체크포인트 저장 함수
 def save_checkpoint(state, filename):
@@ -18,7 +19,9 @@ def save_checkpoint(state, filename):
 def train(model, device, train_loader, optimizer, criterion, epoch):
     model.train()
     train_loss = 0
-    for batch_idx, (x_batch, y_batch) in enumerate(train_loader):
+    progress_bar = tqdm(enumerate(train_loader), total=len(train_loader), desc=f'Epoch {epoch}', leave=False)
+    
+    for batch_idx, (x_batch, y_batch) in progress_bar:
         x_batch = x_batch.to(device)
         y_batch = y_batch.to(device)
 
@@ -30,7 +33,7 @@ def train(model, device, train_loader, optimizer, criterion, epoch):
         train_loss += loss.item()
         
         if batch_idx % 10 == 0:
-            print(f'Train Epoch: {epoch} [{batch_idx * len(x_batch)}/{len(train_loader.dataset)} ({100. * batch_idx / len(train_loader):.0f}%)]\tLoss: {loss.item():.6f}')
+            progress_bar.set_postfix(loss=loss.item())
     
     avg_train_loss = train_loss / len(train_loader)
     writer.add_scalar('Loss/train', avg_train_loss, epoch)
@@ -80,7 +83,7 @@ if __name__ == '__main__':
     test_dataset = TensorDataset(test_x, test_y)
 
     # 데이터 로더 생성
-    batch_size = 32
+    batch_size = 8
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
@@ -113,9 +116,9 @@ if __name__ == '__main__':
     os.makedirs(checkpoint_folder, exist_ok=True)
 
     # 학습 및 검증 루프
-    num_epochs = 100
+    num_epochs = 20
     best_val_loss = float('inf')
-    for epoch in range(1, num_epochs + 1):
+    for epoch in tqdm(range(1, num_epochs + 1), desc='Training Epochs'):
         train_loss = train(model, device, train_loader, optimizer, criterion, epoch)
         val_loss, val_accuracy = validate(model, device, val_loader, criterion, epoch)
         print(f'Epoch {epoch}/{num_epochs}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, Val Accuracy: {val_accuracy:.4f}')
